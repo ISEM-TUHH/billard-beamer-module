@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Beamer configuration in progress</title>
+	    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}" />
+    </head>
+    <body>
+        <!--<img src="{{ url_for('static', filename='configuration-image.svg') }}" style="width: 100%;">-->
+        <img src="{{ url_for('static', filename='grid.bmp') }}" style="width: 65%;" id="config-image">
+        <div class="coloumn">
+            <h3>Config</h3>
+            Select a corner and click on the pixel position 
+            <form name="config" id="config">
+                <input type="radio" name="corner" value="top-left" id="check-top-left"><label for="check-top-left">Top left</label><br>
+                <input type="radio" name="corner" value="top-right" id="check-top-right"><label for="check-top-right">Top right</label><br>
+                <input type="radio" name="corner" value="bottom-left" id="check-bot-left"><label for="check-bot-left">Bottom left</label><br>
+                <input type="radio" name="corner" value="bottom-right" id="check-bot-right"><label for="check-bot-right">Bottom right</label><br>
+                
+                <br>
+
+                <div class="coloumn">
+                    Top left<br>
+                    x: <input type="number" id="top-left-x" name="top-left-x"><br>
+                    y: <input type="number" id="top-left-y" name="top-left-y">
+                </div>
+                <div class="coloumn">
+                    Top Right<br>
+                    x: <input type="number" id="top-right-x" name="top-right-x"><br>
+                    y: <input type="number" id="top-right-y" name="top-right-y">
+                </div>
+                <div class="coloumn">a<br>a<br>a<br>a</div>
+                <div class="coloumn">
+                    Bottom left<br>
+                    x: <input type="number" id="bottom-left-x" name="bottom-left-x"><br>
+                    y: <input type="number" id="bottom-left-y" name="bottom-left-y">
+                </div>
+                <div class="coloumn">
+                    Bottom right<br>
+                    x: <input type="number" id="bottom-right-x" name="bottom-right-x"><br>
+                    y: <input type="number" id="bottom-right-y" name="bottom-right-y">
+                </div>
+                <input type="submit" name="submit" value="Send config form">
+
+            </form>
+        </div>
+    <script type="text/javascript">
+
+        console.log("Hello World")
+
+        var conf = document.getElementById("config-image");
+        conf.addEventListener("click", function(e) {
+            var val = document.querySelector('input[name="corner"]:checked').value;
+
+            var rect = e.target.getBoundingClientRect();
+            imX = Math.round((e.x - rect.left)/rect.width * conf.naturalWidth);
+            imY = Math.round((e.y - rect.top)/rect.height * conf.naturalHeight);
+            console.log(val, imX, imY);
+
+            document.getElementById(val + "-x").value = imX;
+            document.getElementById(val + "-y").value = imY;
+
+            fetch("/v1/updateconfigimage", {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+		        },
+                body: JSON.stringify({"corner": val, "x": imX, "y": imY})
+            })
+        })
+
+        // manual config
+        document.getElementById("config").addEventListener("submit", function (e) {
+            console.log("Hello world")
+            e.preventDefault();
+            
+            form = document.getElementById("config")
+            var formData = new FormData(form);
+            // output as an object
+            console.log(Object.fromEntries(formData));
+            
+            fetch("/v1/manin", {
+                method: "POST",
+                /*headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },*/
+                body: formData
+            })
+                .then((res) => console.log(res))
+                /*.then((res) => res.json())
+                .then((e) => {
+                    console.log(e)
+                    document.getElementById("table-single").innerHTML = e["single-board"]
+                    document.getElementById("table-team").innerHTML = e["team-board"]
+
+                    updatePodium("single", e);
+                    updatePodium("team", e);
+
+                })*/
+        });
+        // check every five seconds, if the beamer has been configured (wait for the camera to answer) and then redirect to the homepage
+        // maybe redirect to another page oneday :) 
+        /*const interval = setInterval(() => {
+            fetch("/v1/state")
+                .then((r) => r.json())
+                .then((r) => {
+                    if (r.state === "configured") {
+                        window.location.href = "/";
+                    } else {
+                        console.log(r)
+                    }
+                })
+        }, 5000)*/
+    </script>
+    
+    </body>
+</html>

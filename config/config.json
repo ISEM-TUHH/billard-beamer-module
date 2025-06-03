@@ -1,0 +1,30 @@
+{
+    "__doc__": "Configuration file for a module. Define its name and the other available modules.",
+
+    "id": "beamer",
+    "ip": "134.28.20.52",
+    "port": "5000",
+
+    "beamer-dimensions": {
+        "width": 1920,
+        "height": 1080
+    },
+    "internal-dimensions": {
+        "width": 2150,
+        "height": 1171
+    },
+    "dp-name": "DisplayPort-8",
+
+    "modules": [
+        {
+            "name": "camera",
+            "ip": "134.28.20.53",
+            "port": "5000"
+        },
+        {
+            "name": "game",
+            "ip": "134.28.20.51",
+            "port": "5000"
+        }
+    ]
+}

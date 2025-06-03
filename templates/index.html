@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<header>
+	<title>Beamer Module</title>
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}" />
+	<link rel="icon" href="{{ url_for('static', filename='favicon.ico')}}" type="image/x-icon" />
+</header>
+<body>
+	<h1>Beamer-Modul des Billardroboter</h1>
+	Homepage des Camera Module
+	<div class="container">
+		<div class="wrapper">
+			<div class="coloumn" id="single">
+				<h3>Debug</h3>
+				<div id="api-doc">
+					All available API endpoints (add ".doc" to the end of each to view its documentation):
+				</div>
+				<div id="api-out">
+				</div>
+			</div>
+			<div class="coloumn" id="team">
+				<h3>Config</h3>
+				<form name="config" id="config">
+					<div class="coloumn">
+						Top left<br>
+						x: <input type="number" id="top-left-x" name="top-left-x"><br>
+						y: <input type="number" id="top-left-y" name="top-left-y">
+					</div>
+					<div class="coloumn">
+						Top Right<br>
+						x: <input type="number" id="top-right-x" name="top-right-x"><br>
+						y: <input type="number" id="top-right-y" name="top-right-y">
+					</div>
+					<div class="coloumn">a<br>a<br>a<br>a</div>
+					<div class="coloumn">
+						Bottom left<br>
+						x: <input type="number" id="bottom-left-x" name="bottom-left-x"><br>
+						y: <input type="number" id="bottom-left-y" name="bottom-left-y">
+					</div>
+					<div class="coloumn">
+						Bottom right<br>
+						x: <input type="number" id="bottom-right-x" name="bottom-right-x"><br>
+						y: <input type="number" id="bottom-right-y" name="bottom-right-y">
+					</div>
+					<input type="submit" name="submit" value="Send config form">
+
+				</form>
+			</div>
+		</div>
+		
+
+		<button onclick="manual_config()">Aufnahme</button>
+		<div id="savepic-status">Noch kein Bild aufgenommen</div>
+		
+		<button onclick="zoomout()">Kalibration löschen</button>
+		<button onclick="calibrate()">Kalibrieren</button>
+	</div>
+	<script lang="javascript" src="{{ url_for('static', filename='script.js')}}"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{
+    "__doc__": "JSON saving the last configuration (corners of the table in beamer coordinates. isCurrent stores if the current values are up to date or not (0 or 1). 5th stores the same coordinates but for the an inner rectangle measuring one fifth of widht and length of the beamer dimension, usefull if the beamer cant rech the entire playing field.",
+    "isCurrent": 0,
+    "transformation-matrix": [
+        [
+            0.29312274377807285,
+            0.00527490486992726,
+            340.0
+        ],
+        [
+            -0.17184956322093425,
+            0.6640596442176923,
+            339.0
+        ],
+        [
+            -0.00015829973494366014,
+            4.567445250649873e-06,
+            1.0
+        ]
+    ],
+    "top-left": {
+        "x": 0,
+        "y": 0
+    },
+    "top-right": {
+        "x": 0,
+        "y": 0
+    },
+    "bottom-left": {
+        "x": 0,
+        "y": 0
+    },
+    "bottom-right": {
+        "x": 0,
+        "y": 0
+    },
+    "5th": {
+        "top-left": {
+            "x": 0,
+            "y": 0
+        },
+        "top-right": {
+            "x": 0,
+            "y": 0
+        },
+        "bottom-left": {
+            "x": 0,
+            "y": 0
+        },
+        "bottom-right": {
+            "x": 0,
+            "y": 0
+        }
+    }
+}
