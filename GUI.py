@@ -31,7 +31,7 @@ class BeamerGUI:
     def update_image(self):
         try:
             response = requests.get(f'http://localhost:5000/servegui/imagestamp')
-            print(response.json())
+            #print(response.json())
 
             # update the time to wait for the next request -> allow for higher framerates for e.g. videos.
             self.wait_next_frame = response.json()["next_request"]
@@ -50,7 +50,8 @@ class BeamerGUI:
             else:
                 pass
         except Exception as e:
-            print(f"Error fetching image: {e}")
+            #print(f"Error fetching image: {e}")
+            pass
 
         self.root.after(self.wait_next_frame, self.update_image)  # Alle 1 Sekunde aktualisieren
 

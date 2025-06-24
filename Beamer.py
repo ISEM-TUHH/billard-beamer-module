@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw, ImageFont # for generating the marker image an
 import time
 import io
 import urllib
+import logging
 
 class Beamer(Module):
 	""" Implementation of the beamer module for the billard roboter
@@ -31,6 +32,10 @@ class Beamer(Module):
 		homescreenPath = current_dir + "/debug/normal_image.jpg"
 		self.frame = cv2.imread(homescreenPath) # start out with a homescreen
 		self.last_frame_timestamp = 0
+
+		# disable logging every request, as there are a lot of requests
+		log = logging.getLogger('werkzeug')
+		log.setLevel(logging.ERROR)
 		
 
 		api_dict = {
@@ -51,8 +56,7 @@ class Beamer(Module):
 				"image": self.send_image
 			},
 			"debug": {
-				"control": self.control_image,
-				"testpushbeamer": self.game_beamer_push_image
+				"control": self.control_image
 			}
 		}
 		self.add_all_api(api_dict)
