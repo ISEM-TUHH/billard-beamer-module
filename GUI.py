@@ -16,7 +16,10 @@ class BeamerGUI:
         self.current_dir = os.path.dirname(__file__)
         with open(os.path.join(self.current_dir, "config/config.json"), "r") as f:
             self.config = json.load(f)
-
+        
+        if "DISPLAY" not in os.environ:
+            os.environ["DISPLAY"] = ":0"
+        
         self.root = tk.Tk()
         self.root.title("Image Viewer")
         self.root.attributes("-fullscreen", True)

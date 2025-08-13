@@ -27,9 +27,8 @@ class Beamer(Module):
 		self.transformPath = current_dir + "/storage/transform.json"
 		self.M = np.eye(3) # neutral transformation matrix
 		self.passUnitMatrixWarning = False
-
 		# for the local GUI
-		homescreenPath = current_dir + "/debug/normal_image.jpg"
+		homescreenPath = current_dir + "/storage/homescreen.png"
 		self.frame = cv2.imread(homescreenPath) # start out with a homescreen
 		self.last_frame_timestamp = 0
 
@@ -37,6 +36,8 @@ class Beamer(Module):
 		log = logging.getLogger('werkzeug')
 		log.setLevel(logging.ERROR)
 		
+
+		self.do_transform()
 
 		api_dict = {
 			"": self.index,
@@ -320,6 +321,7 @@ class Beamer(Module):
 		#img = cv2.imread(imPath)
 		dim = self.config["beamer-dimensions"]
 		width, height = dim["width"], dim["height"]
+		#print("Send image with id ", self.last_frame_timestamp)
 
 		# scale down the image so it always fills out the beamer perfectly
 		# with the images not being optimised for the table (roughly 2:1) but the beamer being 16:9 (and its transformation matrix M being calculated for 1920x1080), we need to temporarely squish the image.
