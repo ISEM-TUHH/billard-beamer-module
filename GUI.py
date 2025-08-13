@@ -3,6 +3,7 @@ import requests
 from PIL import Image, ImageTk
 from io import BytesIO
 import os
+import signal
 import json
 #import cv2 # for image transformation
 
@@ -47,6 +48,8 @@ class BeamerGUI:
                 img = ImageTk.PhotoImage(img)
                 self.label.config(image=img)
                 self.label.image = img
+            elif response.json()["timestamp"] != "restart":
+                self.force_restart()
             else:
                 pass
         except Exception as e:
@@ -54,6 +57,12 @@ class BeamerGUI:
             pass
 
         self.root.after(self.wait_next_frame, self.update_image)  # Alle 1 Sekunde aktualisieren
+
+    def force_restart(self):
+        """ This function kills the process (stops the server). This should restart the server, as it is listed in systemctl with restart=always
+        """
+        os.kill(os.getpid(), signal.SIGINT)
+        return "Restarting the server."
 
 if __name__ == '__main__':
     #root = tk.Tk()
