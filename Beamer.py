@@ -1,19 +1,24 @@
 from Module import Module
 
 import numpy as np
-import pandas as pd
+#import pandas as pd
 import os
-from flask import Flask, jsonify, render_template, request, redirect, session, Response
+from flask import Flask, jsonify, render_template, request, Response
 import socket
 #import urllib.request
 import requests
 import json
 import cv2
-from PIL import Image, ImageDraw, ImageFont # for generating the marker image and using images in Tkinter
+#from PIL import Image, ImageDraw, ImageFont # for generating the marker image and using images in Tkinter
 import time
 import io
 import urllib
 import logging
+import threading
+
+update_frame = True
+frame = None
+
 
 class Beamer(Module):
 	""" Implementation of the beamer module for the billard roboter
@@ -39,6 +44,12 @@ class Beamer(Module):
 
 		self.do_transform()
 
+		# GUI setup
+		#cv2.namedWindow("beamer", cv2.WINDOW_NORMAL)
+		#cv2.startWindowThread()
+		#cv2.namedWindow("beamer", cv2.WINDOW_FULLSCREEN)
+		#cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
 		api_dict = {
 			"": self.index,
 			"v1": {
@@ -52,10 +63,10 @@ class Beamer(Module):
 				"savematrix": self.safe_transformation_matrix,
 				"overwritesafety": self.overrule_warning
 			},
-			"servegui": {
-				"imagestamp": self.get_timestamp_last_image,
-				"image": self.send_image
-			},
+			#"servegui": {
+			#	"imagestamp": self.get_timestamp_last_image,
+			#	"image": self.send_image
+			#},
 			"debug": {
 				"control": self.control_image,
 				"restartgui": self.restart_gui
@@ -86,7 +97,8 @@ class Beamer(Module):
 		#image = res["media"]
 		#print(res.data)
 		self.frame = cv2.imdecode(np.frombuffer(res.data, np.uint8), cv2.IMREAD_COLOR)
-		self.last_frame_timestamp += 1
+		self.update_frame(self.frame)
+
 		return "Image received"
 
 	def do_transform(self, getFromFile = True):
@@ -96,11 +108,11 @@ class Beamer(Module):
 			with open(self.transformPath, "r") as file:
 				transTotal = json.load(file)
 				M = np.array(transTotal["transformation-matrix"])
-				print(M, M.dtype)
+				#print(M, M.dtype)
 
 				# actually perform the xrandr call here
-		print(M)
-		print([list(x) for x in M])
+		#print(M)
+		#print([list(x) for x in M])
 		#transform_list = ",".join([",".join(list(x)) for x in M])
 		transform_list = ""
 		for x in M:
@@ -116,7 +128,7 @@ class Beamer(Module):
 
 		self.state = "configured"
 		self.M = M
-		self.last_frame_timestamp += 1 # force the GUI to reload the image
+		self.update_frame(self.frame) # reload the image
 		return f"Transformed {display} with matrix: <br>{M}<br><br>Message from the process:<br> {mes}".replace("\n","<br>")
 	
 	def overrule_warning(self):
@@ -156,7 +168,7 @@ class Beamer(Module):
 		self.config_raw_frame = self.frame
 		self.corners = {} # tracks the clicked corners
 
-		self.last_frame_timestamp += 1 # just increase the counter
+		self.update_frame(self.frame)# just increase the counter
 		return render_template("configure.html")
 
 	def update_config_image(self):
@@ -168,7 +180,7 @@ class Beamer(Module):
 		for c in self.corners:
 			#print(c, self.corners[c])
 			self.frame = cv2.drawMarker(self.frame, (int(self.corners[c]["x"]), int(self.corners[c]["y"])), (0,0,0), cv2.MARKER_CROSS, 7,3)
-		self.last_frame_timestamp += 1 # just increase the counter
+		self.update_frame(self.frame)# just increase the counter
 
 		return "Top"
 
@@ -194,7 +206,7 @@ class Beamer(Module):
 		print(self.M, "\n",Ms)
 		res = self.do_transform(getFromFile=False)
 
-		self.last_frame_timestamp += 1
+		self.update_frame(self.frame)
 		return f"Found this data:<br>{dst_points}<br><br>...and calculated the matrix:<br>{Ms}"
 
 	def configure_camera_answer(self):
@@ -333,8 +345,42 @@ class Beamer(Module):
 		_, buffer = cv2.imencode(".jpg", img)
 		return Response(buffer.tobytes(), mimetype="image/jpg")
 	
+	def update_frame(self, new_frame):
+		global frame, update_frame
+		""" Resize, transform and display a new frame """
+		dim = self.config["beamer-dimensions"]
+		width, height = dim["width"], dim["height"]
+		#print("Send image with id ", self.last_frame_timestamp)
+		#print("Updating image...")
+		# scale down the image so it always fills out the beamer perfectly
+		# with the images not being optimised for the table (roughly 2:1) but the beamer being 16:9 (and its transformation matrix M being calculated for 1920x1080), we need to temporarely squish the image.
+		scaledImage = cv2.resize(new_frame, (width, height))
+
+		img = cv2.warpPerspective(scaledImage, self.M, (width, height))
+
+		frame = img
+		update_frame = True
+		return 
+
+def display_image():
+	global frame, update_frame
+	cv2.namedWindow("beamer", cv2.WND_PROP_FULLSCREEN)
+	cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+	#print("DISPLAYING NEW IMAGE")
+	while True:
+		if update_frame and frame is not None :
+			#print("UPDATING FRAME")
+			cv2.imshow("beamer", frame)
+			if cv2.waitKey(10) & 0xFF == ord('q'):  # Allow quitting with 'q' key
+				break
+			update_frame = False
 
 if __name__ == "__main__":
 	bea = Beamer()
 	#bea.configure_camera_answer()
-	bea.app.run(host="0.0.0.0")
+
+	threading.Thread(target=display_image).start()
+	bea.app.run(host="0.0.0.0", port=5001)
+
+	cv2.destroyAllWindows()
