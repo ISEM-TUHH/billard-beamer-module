@@ -51,6 +51,9 @@ class BeamerGUI:
                 img = ImageTk.PhotoImage(img)
                 self.label.config(image=img)
                 self.label.image = img
+                # also force to go into fullscreen mode, as this is not always done on boot
+                self.root.attributes("-fullscreen", True)
+                
             elif response.json()["timestamp"] != "restart":
                 self.force_restart()
             else:
