@@ -377,10 +377,12 @@ def display_image():
 			update_frame = False
 
 if __name__ == "__main__":
+	os.environ["DISPLAY"] = ":0"
+
 	bea = Beamer()
 	#bea.configure_camera_answer()
 
 	threading.Thread(target=display_image).start()
-	bea.app.run(host="0.0.0.0", port=5001)
+	bea.app.run(host="0.0.0.0", port=5000)
 
 	cv2.destroyAllWindows()
