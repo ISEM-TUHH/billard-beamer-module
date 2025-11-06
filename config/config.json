@@ -9,6 +9,10 @@
         "width": 1920,
         "height": 1080
     },
+    "beamer-dimensions-test": {
+        "width": 3440,
+        "height": 1440
+    },
     "internal-dimensions": {
         "width": 2150,
         "height": 1171
