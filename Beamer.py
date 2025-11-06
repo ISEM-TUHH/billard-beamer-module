@@ -57,7 +57,8 @@ class Beamer(Module):
 				"image": self.send_image
 			},
 			"debug": {
-				"control": self.control_image
+				"control": self.control_image,
+				"restartgui": self.restart_gui
 			}
 		}
 		self.add_all_api(api_dict)
@@ -295,11 +296,20 @@ class Beamer(Module):
 		_, buffer = cv2.imencode(".jpg", img)
 		return Response(buffer.tobytes(), mimetype="image/jpg")
 
+	def restart_gui(self):
+		self.restart_gui_flag = True
+		return "Restarted GUI"
+
 
 	# -------------------------- Local Tkinter GUI ----------------------------------
 	def get_timestamp_last_image(self):
+		timestamp = str(self.last_frame_timestamp)
+		if self.restart_gui_flag:
+			timestamp = "restart"
+			self.restart_gui_flag = False
 
-		return jsonify({"timestamp": str(self.last_frame_timestamp), "next_request": 1000})
+
+		return jsonify({"timestamp": timestamp, "next_request": 1000})
 
 	def send_image(self):
 		""" Sends the last frame pretransformed. Used for the local GUI. 
