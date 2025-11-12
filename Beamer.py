@@ -54,6 +54,7 @@ class Beamer(Module):
 			"": self.index,
 			"v1": {
 				"receiveimage": self.receive_image,
+				"off": self.display_black_image,
 				"config": self.configure_output,
 				"updateconfigimage": self.update_config_image,
 				"camin": self.configure_camera_answer,
@@ -75,6 +76,7 @@ class Beamer(Module):
 		self.add_all_api(api_dict)
 
 		self.state = "free"
+		self.black_image = np.zeros((1080,1920))
 
 
 	def index(self):
@@ -100,6 +102,10 @@ class Beamer(Module):
 		self.update_frame(self.frame)
 
 		return "Image received"
+
+	def display_black_image(self):
+		self.update_frame(self.black_image)
+		return "Displaying black image"
 
 	def do_transform(self, getFromFile = True):
 		M = self.M
@@ -312,39 +318,8 @@ class Beamer(Module):
 		self.restart_gui_flag = True
 		return "Restarted GUI"
 
-
-	# -------------------------- Local Tkinter GUI ----------------------------------
-	def get_timestamp_last_image(self):
-		timestamp = str(self.last_frame_timestamp)
-		if self.restart_gui_flag:
-			timestamp = "restart"
-			self.restart_gui_flag = False
-
-
-		return jsonify({"timestamp": timestamp, "next_request": 1000})
-
-	def send_image(self):
-		""" Sends the last frame pretransformed. Used for the local GUI. 
-
-		Already uses the self.M to transform the image for the beamer, no need for a full desktop transform using xrandr at this point.
-		"""
-
-		#imPath = self.current_dir + "/static/grid.bmp"
-		#img = cv2.imread(imPath)
-		dim = self.config["beamer-dimensions"]
-		width, height = dim["width"], dim["height"]
-		#print("Send image with id ", self.last_frame_timestamp)
-
-		# scale down the image so it always fills out the beamer perfectly
-		# with the images not being optimised for the table (roughly 2:1) but the beamer being 16:9 (and its transformation matrix M being calculated for 1920x1080), we need to temporarely squish the image.
-		# TODO: test if this resolution suffices, else use a higher resolution (but also for M!) in 16:9.
-		scaledImage = cv2.resize(self.frame, (width, height))
-
-		img = cv2.warpPerspective(scaledImage, self.M, (width, height))
-
-		_, buffer = cv2.imencode(".jpg", img)
-		return Response(buffer.tobytes(), mimetype="image/jpg")
 	
+	###################### INTERACTION WITH GUI THREAD #################################
 	def update_frame(self, new_frame):
 		global frame, update_frame
 		""" Resize, transform and display a new frame """
