@@ -3,6 +3,8 @@ from billard_base_module.Module import Module
 import numpy as np
 #import pandas as pd
 import os
+import subprocess
+import glob
 from flask import Flask, jsonify, render_template, request, Response
 import socket
 #import urllib.request
@@ -41,9 +43,12 @@ class Beamer(Module):
 		homescreenPath = current_dir + "/storage/homescreen.png"
 		self.frame = cv2.imread(homescreenPath) # start out with a homescreen
 		self.last_frame_timestamp = 0
-		
 
 		self.do_transform()
+
+		# Sound setup
+		self.available_sounds = glob.glob("sounds/**/*.mp3", recursive=True)
+		print("Available sounds:", self.available_sounds)
 
 		# GUI setup
 		#cv2.namedWindow("beamer", cv2.WINDOW_NORMAL)
@@ -55,6 +60,7 @@ class Beamer(Module):
 			"": self.index,
 			"v1": {
 				"receiveimage": self.receive_image,
+				"playsound": self.play_sound,
 				"off": self.display_black_image,
 				"config": self.configure_output,
 				"updateconfigimage": self.update_config_image,
@@ -92,6 +98,17 @@ class Beamer(Module):
 		Used to track the current task globally
 		"""
 		return jsonify({"state": self.state})
+
+	def play_sound(self):
+		""" Plays a sound using mpg123 """
+		res = request.json
+		print(res)
+		cleaned = [x.split("/")[-1].replace(".mp3", "") for x in self.available_sounds]
+		if "sound" in res.keys() and res["sound"] in cleaned:
+			file = self.available_sounds[cleaned.index(res["sound"])]
+			subprocess.Popen(["mpg123", file])
+
+		return "Playing " + file 
 
 	def receive_image(self):
 		""" This API endpoint receives images from the web (game module), transforms and forwards them to the GUI.
