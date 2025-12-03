@@ -3,8 +3,12 @@
 
     "id": "beamer",
     "host_ip": "0.0.0.0",
-    "port": "5000",
+    "port": "5001",
 
+    "beamer-dimensions-big": {
+        "width": 3440,
+        "height": 1440
+    },
     "beamer-dimensions": {
         "width": 1920,
         "height": 1080
@@ -18,12 +22,12 @@
     "modules": [
         {
             "name": "camera",
-            "ip": "134.28.20.53",
-            "port": "5000"
+            "ip": "127.0.0.1",
+            "port": "5002"
         },
         {
             "name": "game",
-            "ip": "134.28.20.51",
+            "ip": "127.0.0.1",
             "port": "5000"
         }
     ]

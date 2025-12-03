@@ -1,4 +1,4 @@
-from Module import Module
+from billard_base_module.Module import Module
 
 import numpy as np
 #import pandas as pd
@@ -18,6 +18,7 @@ import threading
 
 update_frame = True
 frame = None
+TEST_MODE = True
 
 
 class Beamer(Module):
@@ -25,9 +26,13 @@ class Beamer(Module):
 	"""
 
 	def __init__(self, config="config/config.json", template_folder="templates"):
+		global TEST_MODE
+
 		current_dir = os.path.dirname(__file__)
 		self.current_dir = current_dir
-		Module.__init__(self, config=f"{current_dir}/{config}", template_folder=f"{current_dir}/{template_folder}")
+		Module.__init__(self, config=f"{current_dir}/{config}", template_folder=f"{current_dir}/{template_folder}", static_folder="")
+
+		TEST_MODE = self.TEST_MODE
 
 		self.transformPath = current_dir + "/storage/transform.json"
 		self.M = np.eye(3) # neutral transformation matrix
@@ -36,10 +41,6 @@ class Beamer(Module):
 		homescreenPath = current_dir + "/storage/homescreen.png"
 		self.frame = cv2.imread(homescreenPath) # start out with a homescreen
 		self.last_frame_timestamp = 0
-
-		# disable logging every request, as there are a lot of requests
-		log = logging.getLogger('werkzeug')
-		log.setLevel(logging.ERROR)
 		
 
 		self.do_transform()
@@ -70,7 +71,7 @@ class Beamer(Module):
 			#},
 			"debug": {
 				"control": self.control_image,
-				"restartgui": self.restart_gui
+				"relaunch": self.force_restart
 			}
 		}
 		self.add_all_api(api_dict)
@@ -314,9 +315,8 @@ class Beamer(Module):
 		_, buffer = cv2.imencode(".jpg", img)
 		return Response(buffer.tobytes(), mimetype="image/jpg")
 
-	def restart_gui(self):
-		self.restart_gui_flag = True
-		return "Restarted GUI"
+	def force_restart(self):
+		os.kill(os.getgid, signal.SIGINT)
 
 	
 	###################### INTERACTION WITH GUI THREAD #################################
@@ -338,9 +338,10 @@ class Beamer(Module):
 		return 
 
 def display_image():
-	global frame, update_frame
-	cv2.namedWindow("beamer", cv2.WND_PROP_FULLSCREEN)
-	cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+	global frame, update_frame, TEST_MODE
+	if not TEST_MODE:
+		cv2.namedWindow("beamer", cv2.WND_PROP_FULLSCREEN)
+		cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 	#print("DISPLAYING NEW IMAGE")
 	while True:
@@ -355,9 +356,16 @@ if __name__ == "__main__":
 	os.environ["DISPLAY"] = ":0"
 
 	bea = Beamer()
+	pid = os.getpid()
+	print("PID", pid)
 	#bea.configure_camera_answer()
 
 	threading.Thread(target=display_image).start()
-	bea.app.run(host="0.0.0.0", port=5000)
+
+	# bea.app_run() creates two processes? (different PID)
+	if bea.TEST_MODE:
+		bea.app.run(host="0.0.0.0", port="5001")
+	else:
+		bea.app.run(host="0.0.0.0", port="5000")
 
 	cv2.destroyAllWindows()
