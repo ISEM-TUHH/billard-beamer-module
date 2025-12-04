@@ -32,7 +32,7 @@ class Beamer(Module):
 
 		current_dir = os.path.dirname(__file__)
 		self.current_dir = current_dir
-		Module.__init__(self, config=f"{current_dir}/{config}", template_folder=f"{current_dir}/{template_folder}", static_folder="")
+		Module.__init__(self, config=f"{current_dir}/{config}", template_folder=f"{current_dir}/{template_folder}", static_folder=f"{current_dir}/static")
 
 		TEST_MODE = self.TEST_MODE
 
@@ -61,6 +61,7 @@ class Beamer(Module):
 			"v1": {
 				"receiveimage": self.receive_image,
 				"playsound": self.play_sound,
+				"soundvolume": self.sound_volume,
 				"off": self.display_black_image,
 				"config": self.configure_output,
 				"updateconfigimage": self.update_config_image,
@@ -102,13 +103,27 @@ class Beamer(Module):
 	def play_sound(self):
 		""" Plays a sound using mpg123 """
 		res = request.json
-		print(res)
 		cleaned = [x.split("/")[-1].replace(".mp3", "") for x in self.available_sounds]
 		if "sound" in res.keys() and res["sound"] in cleaned:
 			file = self.available_sounds[cleaned.index(res["sound"])]
-			subprocess.Popen(["mpg123", file])
+			print("playing sound", file)
+			subprocess.Popen(["mpg123", file], stdout=subprocess.PIPE) # block stdout (pipe into nirvana)
+			return "Playing " + file
+		else:
+			return f"Requested not sound '{res}' found or bad request json", 404
 
-		return "Playing " + file 
+	def sound_volume(self):
+		""" Change the volume level for sound replay using amixer """
+		#print(request, request.json)
+		res = request.json
+		if "level" in res.keys():
+			level = int(res["level"])
+			if level < 0 or level > 100:
+				return "", 403
+			amixer_value = int(65536 * level/100)
+			subprocess.Popen(["amixer", "set", "Master", str(amixer_value)], stdout=subprocess.PIPE)
+			return "Volume set to " + str(level) + "%", 200
+		return "", 403
 
 	def receive_image(self):
 		""" This API endpoint receives images from the web (game module), transforms and forwards them to the GUI.

@@ -65,3 +65,19 @@ document.getElementById("config").addEventListener("submit", function (e) {
 
 		})*/
 });
+
+document.getElementById("volume-slider").addEventListener("change", (e) => {
+	var element = document.getElementById("volume-slider");
+	console.log("Sound volume:", element.value);
+	fetch("/v1/soundvolume",{
+		method: "POST",
+		headers: {
+			"Accept": "content/plain",
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify({"level": element.value})
+	})
+		.then((res) => {
+			element.labels[0].innerText = element.value + "%";
+		})
+})
