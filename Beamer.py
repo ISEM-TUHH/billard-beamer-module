@@ -11,7 +11,7 @@ import socket
 import requests
 import json
 import cv2
-#from PIL import Image, ImageDraw, ImageFont # for generating the marker image and using images in Tkinter
+from PIL import Image, ImageDraw
 import time
 import io
 import urllib
@@ -60,6 +60,7 @@ class Beamer(Module):
 			"": self.index,
 			"v1": {
 				"receiveimage": self.receive_image,
+				"dynamicballs": self.put_white_points,
 				"playsound": self.play_sound,
 				"soundvolume": self.sound_volume,
 				"off": self.display_black_image,
@@ -136,10 +137,41 @@ class Beamer(Module):
 
 		return "Image received"
 
+	def put_white_points(self):
+		"""Receive moving balls (with a flask request) in the format {"points": [{"x": 123, "y": 345}, ...]} and place them on the canvas.
+
+		Returns:
+			str: confirmation "Displaying moving balls"
+
+		Todo:
+			- Improve determining the size of the ball
+			- Add trail of previous balls?
+		"""
+		global frame, update_frame
+
+		# transformation of individual points/coordinates is way faster than drawing on the image and transforming the entire image. The warping should be negligible.
+		# Transformation procedure is form https://stackoverflow.com/questions/36584166/how-do-i-make-perspective-transform-of-point-with-x-and-y-coordinate 
+		res = request.json
+
+		src = np.array([[x["x"], x["y"]] for x in res["points"]], dtype="float32")
+		pts = np.array([src], dtype="float32")
+
+		transformed = cv2.perspectiveTransform(pts, self.M)[0]
+		canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
+		for point in transformed:
+			print(point)
+			canvas = cv2.circle(canvas, center=point.astype(int), radius=15, color=(255, 255, 255), thickness=-1) # always just a white circle. r=15 is a rough assumption
+
+		self.update_frame(canvas, do_transformation=False)
+
+		return "Displaying moving balls"
+
 	def display_black_image(self):
 		self.update_frame(self.black_image)
 		return "Displaying black image"
 
+
+	###################### Setup/Calibration methods ####################################
 	def do_transform(self, getFromFile = True):
 		M = self.M
 
@@ -222,7 +254,6 @@ class Beamer(Module):
 		self.update_frame(self.frame)# just increase the counter
 
 		return "Top"
-
 
 	def configure_manual_answer(self):
 		""" Process the answer of the client when the configuration is in manual mode
@@ -352,8 +383,8 @@ class Beamer(Module):
 
 	
 	###################### INTERACTION WITH GUI THREAD #################################
-	def update_frame(self, new_frame):
-		global frame, update_frame
+	def update_frame(self, new_frame, do_transformation=True):
+		global frame, update_frame, transformed_frame
 		""" Resize, transform and display a new frame """
 		dim = self.config["beamer-dimensions"]
 		width, height = dim["width"], dim["height"]
@@ -361,9 +392,12 @@ class Beamer(Module):
 		#print("Updating image...")
 		# scale down the image so it always fills out the beamer perfectly
 		# with the images not being optimised for the table (roughly 2:1) but the beamer being 16:9 (and its transformation matrix M being calculated for 1920x1080), we need to temporarely squish the image.
-		scaledImage = cv2.resize(new_frame, (width, height))
-
-		img = cv2.warpPerspective(scaledImage, self.M, (width, height))
+		if do_transformation:
+			scaledImage = cv2.resize(new_frame, (width, height))
+			img = cv2.warpPerspective(scaledImage, self.M, (width, height))
+			transformed_frame = img
+		else:
+			img = new_frame
 
 		frame = img
 		update_frame = True
