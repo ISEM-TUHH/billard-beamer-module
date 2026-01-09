@@ -208,7 +208,7 @@ class Beamer(Module):
 
 	def safe_transformation_matrix(self):
 		if np.array_equal(self.M, np.eye(3)) and not self.passUnitMatrixWarning:
-			return "WARNING! You are close to overwriting the matrix with an unit matrix. If this is not on purpose, dont send this signal again. If you want to write an unit matrix, "
+			return "WARNING! You are close to overwriting the matrix with an unit matrix. If this is not on purpose, dont send this signal again. If you want to write an unit matrix, call /v1/overwritesafety first."
 
 		with open(self.transformPath, "r+") as file:
 			transTotal = json.load(file)
@@ -218,6 +218,7 @@ class Beamer(Module):
 			file.seek(0)
 			file.write(asStr)
 			file.truncate()
+		self.passUnitMatrixWarning = True
 		return f"Written transform.json: <br> {asStr}".replace("\n","<br>")
 
 	def configure_output(self):
@@ -239,7 +240,7 @@ class Beamer(Module):
 		self.config_raw_frame = self.frame
 		self.corners = {} # tracks the clicked corners
 
-		self.update_frame(self.frame)# just increase the counter
+		self.update_frame(self.frame)
 		return render_template("configure.html")
 
 	def update_config_image(self):
@@ -250,8 +251,9 @@ class Beamer(Module):
 		self.frame = self.config_raw_frame.copy()
 		for c in self.corners:
 			#print(c, self.corners[c])
-			self.frame = cv2.drawMarker(self.frame, (int(self.corners[c]["x"]), int(self.corners[c]["y"])), (0,0,0), cv2.MARKER_CROSS, 7,3)
-		self.update_frame(self.frame)# just increase the counter
+			self.frame = cv2.drawMarker(self.frame, (int(self.corners[c]["x"]), int(self.corners[c]["y"])), (0,0,0), cv2.MARKER_CROSS, markerSize=15, thickness=5)
+
+		self.update_frame(self.frame)
 
 		return "Top"
 

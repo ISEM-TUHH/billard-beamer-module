@@ -1,0 +1,19 @@
+# This file gets moved to the systemd directory and registered as a cron job
+
+[Unit]
+Description=Billard Beamer module
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python /home/beamer-pi/billard-beamer-module/Beamer.py
+WorkingDirectory = /home/beamer-pi/billard-beamer-module/
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=beamer-pi
+Environment="PYTHONUNBUFFERED=1"
+Environment="DISPLAY=:0"
+Environment="PROD_OR_TEST=PROD"
+
+[Install]
+WantedBy=multi-user.target
