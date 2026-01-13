@@ -156,8 +156,12 @@ class Beamer(Module):
 		src = np.array([[x["x"], x["y"]] for x in res["points"]], dtype="float32")
 		pts = np.array([src], dtype="float32")
 
-		transformed = cv2.perspectiveTransform(pts, self.M)[0]
-		canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
+		if self.config["transformation"] == "OpenCV":
+			transformed = cv2.perspectiveTransform(pts, self.M)[0]
+			canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
+		else:
+			transformed = src
+
 		for point in transformed:
 			print(point)
 			canvas = cv2.circle(canvas, center=point.astype(int), radius=15, color=(255, 255, 255), thickness=-1) # always just a white circle. r=15 is a rough assumption
@@ -181,25 +185,21 @@ class Beamer(Module):
 				M = np.array(transTotal["transformation-matrix"])
 				#print(M, M.dtype)
 
-				# actually perform the xrandr call here
-		#print(M)
-		#print([list(x) for x in M])
-		#transform_list = ",".join([",".join(list(x)) for x in M])
-		transform_list = ""
-		for x in M:
-			for y in x:
-				transform_list += str(y) + ","
-		transform_list = transform_list[:-1]
-
-		display = self.config["dp-name"] # get the name of the current display for the xrandr call
-		int_dim = self.config["internal-dimensions"]
-		int_width, int_height = int_dim["width"], int_dim["height"]
-		mes = transform_list#"Process was not called."
-		#mes = os.popen(f'xrandr --output "{display}" --fb {int_width}x{int_height} --transform {transform_list}').read()
-
 		self.state = "configured"
 		self.M = M
-		self.update_frame(self.frame) # reload the image
+
+		match self.config["transformation"]:
+			case "xrandr":
+				transform_argument = ",".join(M.flatten().astype(str))
+				display = self.config["dp-name"] # get the name of the current display for the xrandr call
+				int_dim = self.config["internal-dimensions"]
+				int_width, int_height = int_dim["width"], int_dim["height"]
+				#mes = transform_list#"Process was not called."
+				mes = os.popen(f'xrandr --output {display} --transform {transform_list}').read() # https://x.org/releases/X11R7.5/doc/man/man1/xrandr.1.html
+
+			case "OpenCV":
+				self.update_frame(self.frame) # reload the image
+		
 		return f"Transformed {display} with matrix: <br>{M}<br><br>Message from the process:<br> {mes}".replace("\n","<br>")
 	
 	def overrule_warning(self):
@@ -386,7 +386,7 @@ class Beamer(Module):
 	
 	###################### INTERACTION WITH GUI THREAD #################################
 	def update_frame(self, new_frame, do_transformation=True):
-		global frame, update_frame, transformed_frame
+		global frame, update_frame, transformed_frame, opencv_transformation
 		""" Resize, transform and display a new frame """
 		dim = self.config["beamer-dimensions"]
 		width, height = dim["width"], dim["height"]
@@ -394,7 +394,7 @@ class Beamer(Module):
 		#print("Updating image...")
 		# scale down the image so it always fills out the beamer perfectly
 		# with the images not being optimised for the table (roughly 2:1) but the beamer being 16:9 (and its transformation matrix M being calculated for 1920x1080), we need to temporarely squish the image.
-		if do_transformation:
+		if do_transformation and (self.config["transformation"] == "OpenCV"):
 			scaledImage = cv2.resize(new_frame, (width, height))
 			img = cv2.warpPerspective(scaledImage, self.M, (width, height))
 			transformed_frame = img
