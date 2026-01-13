@@ -154,7 +154,7 @@ class Beamer(Module):
 			- Improve determining the size of the ball
 			- Add trail of previous balls?
 		"""
-		global frame, update_frame
+		global frame, update_frame, transformed_frame
 
 		# transformation of individual points/coordinates is way faster than drawing on the image and transforming the entire image. The warping should be negligible.
 		# Transformation procedure is form https://stackoverflow.com/questions/36584166/how-do-i-make-perspective-transform-of-point-with-x-and-y-coordinate 
@@ -167,12 +167,19 @@ class Beamer(Module):
 		src2 = src * np.array([1920/2230, 1080/1115])
 		pts = np.array([src2], dtype="float32")
 
-		transformed = cv2.perspectiveTransform(pts, self.M)[0]
+		if self.config["transformation"] == "OpenCV":
+			transformed = cv2.perspectiveTransform(pts, self.M)[0]
+		else:
+			transformed = src
+			
+		canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
+
+		#transformed = cv2.perspectiveTransform(pts, self.M)[0]
 		self.trace_history.insert(0, transformed)
 		if len(self.trace_history) > self.trace_length:
 			self.trace_history.pop(-1)
 
-		canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
+		#canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
 		match self.trace_type:
 			case "doppler":
 				n_history = len(self.trace_history)
@@ -183,7 +190,6 @@ class Beamer(Module):
 					#print(color, type(color))
 					for point in transformed:
 						canvas = cv2.drawMarker(canvas, point.astype(int), color=color.astype(int).tolist(), markerType=cv2.MARKER_SQUARE, markerSize=markerSize) # always just a white circle. r=15 is a rough assumption
-
 
 		self.update_frame(canvas, do_transformation=False)
 
@@ -204,25 +210,21 @@ class Beamer(Module):
 				M = np.array(transTotal["transformation-matrix"])
 				#print(M, M.dtype)
 
-				# actually perform the xrandr call here
-		#print(M)
-		#print([list(x) for x in M])
-		#transform_list = ",".join([",".join(list(x)) for x in M])
-		transform_list = ""
-		for x in M:
-			for y in x:
-				transform_list += str(y) + ","
-		transform_list = transform_list[:-1]
-
-		display = self.config["dp-name"] # get the name of the current display for the xrandr call
-		int_dim = self.config["internal-dimensions"]
-		int_width, int_height = int_dim["width"], int_dim["height"]
-		mes = transform_list#"Process was not called."
-		#mes = os.popen(f'xrandr --output "{display}" --fb {int_width}x{int_height} --transform {transform_list}').read()
-
 		self.state = "configured"
 		self.M = M
-		self.update_frame(self.frame) # reload the image
+
+		match self.config["transformation"]:
+			case "xrandr":
+				transform_argument = ",".join(M.flatten().astype(str))
+				display = self.config["dp-name"] # get the name of the current display for the xrandr call
+				int_dim = self.config["internal-dimensions"]
+				int_width, int_height = int_dim["width"], int_dim["height"]
+				#mes = transform_list#"Process was not called."
+				mes = os.popen(f'xrandr --output {display} --transform {transform_list}').read() # https://x.org/releases/X11R7.5/doc/man/man1/xrandr.1.html
+
+			case "OpenCV":
+				self.update_frame(self.frame) # reload the image
+		
 		return f"Transformed {display} with matrix: <br>{M}<br><br>Message from the process:<br> {mes}".replace("\n","<br>")
 	
 	def overrule_warning(self):
@@ -231,7 +233,7 @@ class Beamer(Module):
 
 	def safe_transformation_matrix(self):
 		if np.array_equal(self.M, np.eye(3)) and not self.passUnitMatrixWarning:
-			return "WARNING! You are close to overwriting the matrix with an unit matrix. If this is not on purpose, dont send this signal again. If you want to write an unit matrix, "
+			return "WARNING! You are close to overwriting the matrix with an unit matrix. If this is not on purpose, dont send this signal again. If you want to write an unit matrix, call /v1/overwritesafety first."
 
 		with open(self.transformPath, "r+") as file:
 			transTotal = json.load(file)
@@ -241,6 +243,7 @@ class Beamer(Module):
 			file.seek(0)
 			file.write(asStr)
 			file.truncate()
+		self.passUnitMatrixWarning = True
 		return f"Written transform.json: <br> {asStr}".replace("\n","<br>")
 
 	def configure_output(self):
@@ -262,7 +265,7 @@ class Beamer(Module):
 		self.config_raw_frame = self.frame
 		self.corners = {} # tracks the clicked corners
 
-		self.update_frame(self.frame)# just increase the counter
+		self.update_frame(self.frame)
 		return render_template("configure.html")
 
 	def update_config_image(self):
@@ -273,8 +276,9 @@ class Beamer(Module):
 		self.frame = self.config_raw_frame.copy()
 		for c in self.corners:
 			#print(c, self.corners[c])
-			self.frame = cv2.drawMarker(self.frame, (int(self.corners[c]["x"]), int(self.corners[c]["y"])), (0,0,0), cv2.MARKER_CROSS, 7,3)
-		self.update_frame(self.frame)# just increase the counter
+			self.frame = cv2.drawMarker(self.frame, (int(self.corners[c]["x"]), int(self.corners[c]["y"])), (0,0,0), cv2.MARKER_CROSS, markerSize=15, thickness=5)
+
+		self.update_frame(self.frame)
 
 		return "Top"
 
@@ -410,7 +414,7 @@ class Beamer(Module):
 	
 	###################### INTERACTION WITH GUI THREAD #################################
 	def update_frame(self, new_frame, do_transformation=True):
-		global frame, update_frame, transformed_frame
+		global frame, update_frame, transformed_frame, opencv_transformation
 		""" Resize, transform and display a new frame """
 		dim = self.config["beamer-dimensions"]
 		width, height = dim["width"], dim["height"]
@@ -418,7 +422,7 @@ class Beamer(Module):
 		#print("Updating image...")
 		# scale down the image so it always fills out the beamer perfectly
 		# with the images not being optimised for the table (roughly 2:1) but the beamer being 16:9 (and its transformation matrix M being calculated for 1920x1080), we need to temporarely squish the image.
-		if do_transformation:
+		if do_transformation and (self.config["transformation"] == "OpenCV"):
 			scaledImage = cv2.resize(new_frame, (width, height))
 			img = cv2.warpPerspective(scaledImage, self.M, (width, height))
 			transformed_frame = img

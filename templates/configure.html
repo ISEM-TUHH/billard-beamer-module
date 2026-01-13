@@ -39,13 +39,12 @@
                     x: <input type="number" id="bottom-right-x" name="bottom-right-x"><br>
                     y: <input type="number" id="bottom-right-y" name="bottom-right-y">
                 </div>
-                <input type="submit" name="submit" value="Send config form">
-
+                <input type="submit" name="submit" value="Apply configuration">
+                <br>
             </form>
+            <input type="button" name="save" value="Save the configuration">
         </div>
     <script type="text/javascript">
-
-        console.log("Hello World")
 
         var conf = document.getElementById("config-image");
         conf.addEventListener("click", function(e) {
@@ -99,19 +98,14 @@
 
                 })*/
         });
-        // check every five seconds, if the beamer has been configured (wait for the camera to answer) and then redirect to the homepage
-        // maybe redirect to another page oneday :) 
-        /*const interval = setInterval(() => {
-            fetch("/v1/state")
-                .then((r) => r.json())
-                .then((r) => {
-                    if (r.state === "configured") {
-                        window.location.href = "/";
-                    } else {
-                        console.log(r)
-                    }
-                })
-        }, 5000)*/
+        document.getElementById("save").addEventListener("click", (e) => {
+            fetch("/v1/savematrix").then((res) => {
+                if (res.state != 200) {
+                    alert("Some error occured (response code " + res.state + "), your configuration may not have been saved. Check the server console and this browsers JS console for more.")
+                }
+                console.log(res);
+            });
+        });
     </script>
     
     </body>
