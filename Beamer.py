@@ -17,11 +17,12 @@ import io
 import urllib
 import logging
 import threading
+import signal
 
 update_frame = True
 frame = None
 TEST_MODE = True
-
+END_DISPLAY = False
 
 class Beamer(Module):
 	""" Implementation of the beamer module for the billard roboter
@@ -44,11 +45,17 @@ class Beamer(Module):
 		self.frame = cv2.imread(homescreenPath) # start out with a homescreen
 		self.last_frame_timestamp = 0
 
+		self.trace_type = "doppler"
+		self.trace_length = 5
+		self.trace_history = []
+
 		self.do_transform()
 
 		# Sound setup
 		self.available_sounds = glob.glob("sounds/**/*.mp3", recursive=True)
 		print("Available sounds:", self.available_sounds)
+
+		print("Loaded config:", self.config)
 
 		# GUI setup
 		#cv2.namedWindow("beamer", cv2.WINDOW_NORMAL)
@@ -153,14 +160,30 @@ class Beamer(Module):
 		# Transformation procedure is form https://stackoverflow.com/questions/36584166/how-do-i-make-perspective-transform-of-point-with-x-and-y-coordinate 
 		res = request.json
 
+		if len(res["points"]) == 0:
+			return "No balls send to display, json key 'points' is empty"
+
 		src = np.array([[x["x"], x["y"]] for x in res["points"]], dtype="float32")
-		pts = np.array([src], dtype="float32")
+		src2 = src * np.array([1920/2230, 1080/1115])
+		pts = np.array([src2], dtype="float32")
 
 		transformed = cv2.perspectiveTransform(pts, self.M)[0]
+		self.trace_history.insert(0, transformed)
+		if len(self.trace_history) > self.trace_length:
+			self.trace_history.pop(-1)
+
 		canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
-		for point in transformed:
-			print(point)
-			canvas = cv2.circle(canvas, center=point.astype(int), radius=15, color=(255, 255, 255), thickness=-1) # always just a white circle. r=15 is a rough assumption
+		match self.trace_type:
+			case "doppler":
+				n_history = len(self.trace_history)
+				for i, transformed in enumerate(self.trace_history):
+					
+					markerSize = 20*(i+1)
+					color = np.array([255, 255, 255])*(1 - i/n_history)
+					#print(color, type(color))
+					for point in transformed:
+						canvas = cv2.drawMarker(canvas, point.astype(int), color=color.astype(int).tolist(), markerType=cv2.MARKER_SQUARE, markerSize=markerSize) # always just a white circle. r=15 is a rough assumption
+
 
 		self.update_frame(canvas, do_transformation=False)
 
@@ -379,7 +402,10 @@ class Beamer(Module):
 		return Response(buffer.tobytes(), mimetype="image/jpg")
 
 	def force_restart(self):
-		os.kill(os.getgid, signal.SIGINT)
+		global END_DISPLAY
+		END_DISPLAY = True
+		os.kill(os.getpid(), signal.SIGINT)
+		return "Restarting"
 
 	
 	###################### INTERACTION WITH GUI THREAD #################################
@@ -404,7 +430,7 @@ class Beamer(Module):
 		return 
 
 def display_image():
-	global frame, update_frame, TEST_MODE
+	global frame, update_frame, TEST_MODE, END_DISPLAY
 	if not TEST_MODE:
 		cv2.namedWindow("beamer", cv2.WND_PROP_FULLSCREEN)
 		cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
@@ -417,6 +443,11 @@ def display_image():
 			if cv2.waitKey(10) & 0xFF == ord('q'):  # Allow quitting with 'q' key
 				break
 			update_frame = False
+
+		if END_DISPLAY:
+			break
+
+	cv2.destroyAllWindows()
 
 if __name__ == "__main__":
 	os.environ["DISPLAY"] = ":0"

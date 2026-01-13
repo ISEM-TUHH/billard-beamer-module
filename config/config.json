@@ -9,9 +9,13 @@
         "width": 1920,
         "height": 1080
     },
-    "internal-dimensions": {
+    "internal-dimensions-old": {
         "width": 2150,
         "height": 1171
+    },    
+    "internal-dimensions": {
+        "width": 2230,
+        "height": 1115
     },
     "dp-name": "DisplayPort-8",
 
