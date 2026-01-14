@@ -36,3 +36,13 @@ This part is concerned with setting up the display area to perfectly match the b
         - If you want to iterate, reload the page and repeat. Reloading the page resets the configuration
         - If you want to keep the configuration, click on "Save the configuration". You need to have a configuration applied previously for this to apply.
         
+## Documentation
+Documentation can be generated using sphinx, which also gets installed at installation time into the virtual environment. To build the html documentation, use
+```
+source .venv/bin/activate
+cd docs
+make html
+```
+Alternatively, you can build a PDF version by using `make latexpdf`. This requires a full LaTeX installation on your computer.
+
+Documentation for the web API is also available on the main website, all available endpoints under `http://<address>:5000/api-doc` and every endpoint has documentation under `http://<address>:5000/<endpoint>.doc`.

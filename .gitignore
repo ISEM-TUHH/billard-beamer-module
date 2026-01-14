@@ -1,7 +1,10 @@
 debug/
 docs/source/_autosummary
 docs/source/_static
-
+docs/_build/doctrees/
+docs/_build/html/
+docs/_build/latex/*
+!docs/_build/latex/*.pdf
 
 # Copyrighted material
 sounds/**/*.mp3
@@ -77,7 +80,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+#docs/_build/
 
 # PyBuilder
 .pybuilder/
