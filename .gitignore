@@ -1,4 +1,7 @@
 debug/
+docs/source/_autosummary
+docs/source/_static
+
 
 # Copyrighted material
 sounds/**/*.mp3

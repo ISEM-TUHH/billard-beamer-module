@@ -18,6 +18,7 @@
         "height": 1171
     },
     "dp-name": "DisplayPort-8",
+    "transformation": "OpenCV",
 
     "modules": [
         {

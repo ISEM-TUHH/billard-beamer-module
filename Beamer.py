@@ -224,6 +224,8 @@ class Beamer(Module):
 
 			case "OpenCV":
 				self.update_frame(self.frame) # reload the image
+				display = "(irrelevant)"
+				mes = "transformed "
 		
 		return f"Transformed {display} with matrix: <br>{M}<br><br>Message from the process:<br> {mes}".replace("\n","<br>")
 	
