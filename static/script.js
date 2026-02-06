@@ -26,6 +26,7 @@ function testAPI() {
 				var a = document.createElement("a");
 				a.innerText = api[i];
 				a.href = api[i];
+				a.target = "_blank";
 				di.appendChild(a);
 				di.appendChild(document.createElement("br"))
 			}
