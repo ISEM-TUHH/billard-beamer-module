@@ -46,14 +46,13 @@ def add_to_path():
 
 #add_to_path()
 
-print(sys.executable)
-print(sys.path)
+#print(sys.executable)
+#print(sys.path)
 #import Game
 #import GameEngine
 
 
-
-project = 'game module - Billard@ISEM'
+project = 'Beamer Module - Billard@ISEM'
 copyright = '2025, Mathis Wolter'
 author = 'Mathis Wolter'
 release = '0.1'
@@ -69,7 +68,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_mdinclude',
-    'sphinx.ext.todo'
+    'sphinx.ext.todo',
+    #'sphinx_toolbox.more_autodoc.variables'
 ]
 
 templates_path = ['_templates']

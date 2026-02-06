@@ -1,3 +1,16 @@
+"""The Beamer Module for the Billard@ISEM system.
+
+This module supplies the class `Beamer` and the function `display_image`. `Beamer` supplies the webserver and API, while `display_image` hosts a `cv2.imshow` thread, actually showing the image.
+
+Attributes:
+	update_frame_flag (bool): if true, the running `display_image` instance will show the currently defined `frame`
+	frame (np.ndarray): cv2 image that gets shown
+	TEST_MODE (bool): gets set by the running `Beamer` instance. Corresponds to `Module.TEST_MODE`. If False, the image will be displayed in fullscreen mode.
+	END_DISPLAY (bool): if True, the running `display_image` instance will terminate.
+
+"""
+
+
 from billard_base_module.Module import Module
 
 import numpy as np
@@ -19,16 +32,39 @@ import logging
 import threading
 import signal
 
-update_frame = True
+update_frame_flag = True
 frame = None
 TEST_MODE = True
 END_DISPLAY = False
 
 class Beamer(Module):
-	""" Implementation of the beamer module for the billard roboter
+	"""Implementation of the Beamer Module for the Billard@ISEM system.
+
+	Running it also requires the `display_image` function two run in a parallel thread.´ to handle actually displaying the image.
+
+	Attributes:
+		current_dir (str): Absolute path of this file
+		app (flask.Flask): Flask app. This needs to run for the module to run (e.g., `beamer.app.run()`)
+		passUnitMatrixWarning (bool): if True, you can save a unit matrix as the transformation matrix
+		M (np.ndarray 3x3): perspective warp transformation matrix for transforming the image using `cv2`.
+		trace_type (str): type of trace that gets drawn in a live inference type mode (see Beamer.put_white_points)
+		trace_length (int): how long the trace history should be (see Beamer.put_white_points)
+		trace_history (list): the last `Beamer.trace_length` trace lists (see Beamer.put_white_points)
+		available_sounds (list): list of all .mp3 files in the `sounds` directory (including subdirectories)
+		state (str): current state of the Beamer Module. Not really used
+		black_image (np.ndarray): a 1080x1920 (full HD) black image
 	"""
 
+
 	def __init__(self, config="config/config.json", template_folder="templates"):
+		"""Initialize a Beamer instance.
+
+		This collects all sound resources and uses the parent class `Module` to setup the web API.
+
+		Args:
+			config (str, optional): Relative path to a config (`.json`) file. Defaults to "config/config.json".
+			template_folder (str, optional): Relative path to a folder to used as templates by flask. Defaults to "templates".
+		"""
 		global TEST_MODE
 
 		current_dir = os.path.dirname(__file__)
@@ -80,10 +116,6 @@ class Beamer(Module):
 				"savematrix": self.safe_transformation_matrix,
 				"overwritesafety": self.overrule_warning
 			},
-			#"servegui": {
-			#	"imagestamp": self.get_timestamp_last_image,
-			#	"image": self.send_image
-			#},
 			"debug": {
 				"control": self.control_image,
 				"relaunch": self.force_restart
@@ -96,6 +128,11 @@ class Beamer(Module):
 
 
 	def index(self):
+		"""Renders the index website.
+
+		Returns:
+			Response: rendered index.html page
+		"""
 		print(f"Client connected.")
 
 		self.state = "home"
@@ -104,12 +141,24 @@ class Beamer(Module):
 	def get_state(self):
 		""" Returns the current state of the beamer object.
 
-		Used to track the current task globally
+		Used to track the current task globally. Not really useful.
+
+		Returns:
+			Respone: `flask.jsonify` output of `{'state': self.state}`
 		"""
 		return jsonify({"state": self.state, "comment": "The state is not really used anywhere."})
 
 	def play_sound(self):
-		""" Plays a sound using mpg123 """
+		"""Plays a sound using mpg123
+
+		From a flask request.json, search for the sound behind the json key `sound` in `self.available_sounds` and plays it using mpg123. 
+
+		Known errors: when using a Raspberry PI 5 connected via HDMI to a beamer and turing the beamer on after the PI, there sometimes is no sound.
+
+		Returns:
+			str, (int): "Playing [file name]" if everythin is fine or a message and 404 when the sound was not found.
+		
+		"""
 		res = request.json
 		cleaned = [x.split("/")[-1].replace(".mp3", "") for x in self.available_sounds]
 		if "sound" in res.keys() and res["sound"] in cleaned:
@@ -118,10 +167,16 @@ class Beamer(Module):
 			subprocess.Popen(["mpg123", file], stdout=subprocess.PIPE) # block stdout (pipe into nirvana)
 			return "Playing " + file
 		else:
-			return f"Requested not sound '{res}' found or bad request json", 404
+			return f"Requested sound '{res}' not found or bad request json", 404
 
 	def sound_volume(self):
-		""" Change the volume level for sound replay using amixer """
+		"""Change the volume level for sound replay using amixer
+		
+		From a POST request, use the json data `{"level": 100}` to set the volume between 0 and 100 using the `amixer` utility. The key `level` not in the json data or the level being outside of 0 <= level <= 100 returns in a 403 error. 
+
+		Returns:
+			str, int: "" and the http status code 200 if everything worked or 403 if there is something wrong with the request. 
+		"""
 		#print(request, request.json)
 		res = request.json
 		if "level" in res.keys():
@@ -134,7 +189,12 @@ class Beamer(Module):
 		return "", 403
 
 	def receive_image(self):
-		""" This API endpoint receives images from the web (game module), transforms and forwards them to the GUI.
+		"""This API endpoint receives images from the web (game module), transforms and shows it.
+
+		POST an image (as the request.data) enocded to uint8.
+
+		Returns:
+			str: "Image received", flask requires response
 		"""
 		res = request
 		#image = res["media"]
@@ -145,7 +205,12 @@ class Beamer(Module):
 		return "Image received"
 
 	def put_white_points(self):
-		"""Receive moving balls (with a flask request) in the format {"points": [{"x": 123, "y": 345}, ...]} and place them on the canvas.
+		"""Receive moving balls (with a flask POST request) as json data in the format {"points": [{"x": 123, "y": 345}, ...]} and place them on the canvas.
+
+		Coordinates are individually transformed, improving performance compared to drawing them and then transforming the entire image. This leads to small projection errors when drawing stuff around transformed coordinates.
+		Stores the last `self.trace_length` (transformed) coordinates in `self.trace_history` (queue like behaviour).
+
+		The type of visual affect must be added via code and could be changed by manipulating `self.trace_type`. Current "doppler" effect displays squares increasing in size and decreasing in brightness by the "age" of the coordinates, simulating the physical doppler effect.
 
 		Returns:
 			str: confirmation "Displaying moving balls"
@@ -153,6 +218,7 @@ class Beamer(Module):
 		Todo:
 			- Improve determining the size of the ball
 			- Add trail of previous balls?
+			- Add more effects?
 		"""
 		global frame, update_frame, transformed_frame
 
@@ -179,7 +245,7 @@ class Beamer(Module):
 		if len(self.trace_history) > self.trace_length:
 			self.trace_history.pop(-1)
 
-		#canvas = transformed_frame.copy() # != self.frame, global frame is already transformed
+		# the type of drawing is determined by self.trace_type. Currently only "doppler" is implemented.
 		match self.trace_type:
 			case "doppler":
 				n_history = len(self.trace_history)
@@ -196,12 +262,29 @@ class Beamer(Module):
 		return "Displaying moving balls"
 
 	def display_black_image(self):
-		self.update_frame(self.black_image)
+		"""Display a black image on the beamer
+
+		Returns:
+			str: "Displaying black image", flask requires a response
+		"""
+		global transformed_frame
+		self.update_frame(self.black_image, do_transformation=False) # when using OpenCV for transformation, this is way faster without transformation
+		transformed_frame = self.black_image.copy() # for nicer fast inference
 		return "Displaying black image"
 
 
 	###################### Setup/Calibration methods ####################################
 	def do_transform(self, getFromFile = True):
+		"""Transform the output image based on the transformation matrix `self.M` or read from the file behing `self.transformPath`. 
+
+		The type of transformation is determined by `'transformation'` in the config file. Setting it to `'OpenCV'` manually transforms the image using the OpenCV (cv2) library before showing it. `'xrandr'` uses the xrandr system to transform the entire desktop output (this is untested and likely not working!).
+
+		Args:
+			getFromFile (bool, optional): Decide if the current `self.M` should be used or if the matrix should be loaded from `self.transformationPath` file. Defaults to True.
+
+		Returns:
+			str: description of the transformation process.
+		"""
 		M = self.M
 
 		if getFromFile:
@@ -249,9 +332,14 @@ class Beamer(Module):
 		return f"Written transform.json: <br> {asStr}".replace("\n","<br>")
 
 	def configure_output(self):
-		""" This starts the routine to align the beamer output to the pool table as it is recognised by the camera. Displays the configuration image and pings the camera module to measure and respond. (Last not yet implemented)
+		"""Start the config process 
+		
+		This starts the routine to align the beamer output to the pool table as it is recognised by the camera. Displays the configuration image and pings the camera module to measure and respond. (Last not yet implemented)
 
-		Currently, this just displays a grid on the beamer
+		Currently, this just displays a grid on the beamer for manual configuration.
+
+		Returns:
+			Response: rendered configure.html template
 		"""
 		
 		#load the old config
@@ -271,6 +359,11 @@ class Beamer(Module):
 		return render_template("configure.html")
 
 	def update_config_image(self):
+		"""In the manual config process, this puts live updates from the website (passed as "corner" key in request.json) on the projected image. This allows for the user doing the calibration to see where the corner they selected is.
+
+		Returns:
+			str: "Top", flask requires a response
+		"""
 		res = request.json
 		print(res)
 		self.corners[res["corner"]] = res
@@ -285,7 +378,12 @@ class Beamer(Module):
 		return "Top"
 
 	def configure_manual_answer(self):
-		""" Process the answer of the client when the configuration is in manual mode
+		""" 
+		
+		Process the answer of the client when the configuration is in manual mode
+		
+		Returns:
+			str: html message containing the points and transformation matrix.
 		"""
 		res = request.form
 		print(res)
@@ -309,10 +407,10 @@ class Beamer(Module):
 		return f"Found this data:<br>{dst_points}<br><br>...and calculated the matrix:<br>{Ms}"
 
 	def configure_camera_answer(self):
-		""" This endpoint takes the answer of the camera (coordinates of the points projected in /config (python: configure_output) in camera coordinates) and performs the xrandr calibration and call.
-
-		Currently in heavy development and using simulated/harcoded input.
-		Not working in the moment, task for next sprint.
+		"""NOT WORKING part of trying to calibrate the beamer based on the Camera Module detecting the beamer.
+		
+		Returns:
+			Response: an image/jpg mimetype response of the transformed image
 		"""
 		#print(request.json) # -> also returns the dimensions of the table
 		#w, h = 2150, 1171
@@ -393,7 +491,11 @@ class Beamer(Module):
 		#return "This is a purely internal function."
 
 	def control_image(self):
-		""" In theory this should show what the camera sees of the beamer image, idk if its working :)
+		"""NOT WORKING part of trying to calibrate the beamer based on the Camera Module detecting the beamer.
+		
+		Returns:
+			Response: an image/jpg mimetype response of the transformed image
+
 		"""
 		wf, hf = 2150, 1171
 		src_points = np.float32([[0.25*wf,0.4*hf], [0.75*wf, 0.25*hf], [0.25*wf, 0.7*hf], [0.75*wf, 0.65*hf]])
@@ -408,6 +510,12 @@ class Beamer(Module):
 		return Response(buffer.tobytes(), mimetype="image/jpg")
 
 	def force_restart(self):
+		"""Stop the system by ending both threads. If this is running on a systemd service that restarts a finished service, this restarts the server. Useful for debugging.
+
+		Returns:
+			str: "Restarting", because flask requires a response
+		"""
+
 		global END_DISPLAY
 		END_DISPLAY = True
 		os.kill(os.getpid(), signal.SIGINT)
@@ -416,8 +524,18 @@ class Beamer(Module):
 	
 	###################### INTERACTION WITH GUI THREAD #################################
 	def update_frame(self, new_frame, do_transformation=True):
-		global frame, update_frame, transformed_frame, opencv_transformation
-		""" Resize, transform and display a new frame """
+		"""Pass a new frame to be displayed in the display thread.
+
+		From the Beamer object, this updates the global variables `frame`, `update_frame` and `transformed_frame`. The first two signal the `display_image` function running in a different thread to update the displayed image.
+
+		If the new frame should be perspectively transformed before displaying, supply `do_transformation=True`. This also saves the last transformed image in the global variable `transformed_frame`. 
+
+		Args:
+			new_frame (np.ndarray): new cv2 image to get displayed
+			do_transformation (bool, optional): Decide if the image should be transformed before displaying. Only effective if `'transformation': 'OpenCV'` in the used config file. Defaults to True.
+		"""
+
+		global frame, update_frame_flag, transformed_frame#, opencv_transformation
 		dim = self.config["beamer-dimensions"]
 		width, height = dim["width"], dim["height"]
 		#print("Send image with id ", self.last_frame_timestamp)
@@ -430,25 +548,30 @@ class Beamer(Module):
 			transformed_frame = img
 		else:
 			img = new_frame
+			#transformed_frame = img
 
 		frame = img
-		update_frame = True
+		update_frame_flag = True
 		return 
 
 def display_image():
-	global frame, update_frame, TEST_MODE, END_DISPLAY
+	"""This function runs in its own thread, running cv2.imshow to display the global variable `frame` (np.ndarray / cv2 image). As soon as the flag `update_frame_flag` (bool) is raised, it updates the frame, resetting `updating_frame=False`. If the flag `END_DISPLAY` is raised, this function (the `while True` loop) terminates and closes all windows.
+
+	In the test mode (flag ´TEST_MODE` in python, externally set with environment variable `PROD_OR_TEST=TEST`), the image is not displayed in fullscreen. 
+	"""
+	global frame, update_frame_flag, TEST_MODE, END_DISPLAY
 	if not TEST_MODE:
 		cv2.namedWindow("beamer", cv2.WND_PROP_FULLSCREEN)
 		cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 	#print("DISPLAYING NEW IMAGE")
 	while True:
-		if update_frame and frame is not None :
+		if update_frame_flag and frame is not None :
 			#print("UPDATING FRAME")
 			cv2.imshow("beamer", frame)
 			if cv2.waitKey(10) & 0xFF == ord('q'):  # Allow quitting with 'q' key
 				break
-			update_frame = False
+			update_frame_flag = False
 
 		if END_DISPLAY:
 			break
