@@ -111,7 +111,7 @@ class Beamer(Module):
 				"updateconfigimage": self.update_config_image,
 				"camin": self.configure_camera_answer,
 				"manin": self.configure_manual_answer,
-				"state": self.state,
+				"state": self.get_state,
 				"transform": self.do_transform,
 				"savematrix": self.safe_transformation_matrix,
 				"overwritesafety": self.overrule_warning
@@ -139,7 +139,7 @@ class Beamer(Module):
 		self.state = "home"
 		return render_template('index.html')
 
-	def state(self):
+	def get_state(self):
 		""" Returns the current state of the beamer object.
 
 		Used to track the current task globally. Not really useful.
@@ -147,7 +147,7 @@ class Beamer(Module):
 		Returns:
 			Respone: `flask.jsonify` output of `{'state': self.state}`
 		"""
-		return jsonify({"state": self.state})
+		return jsonify({"state": self.state, "comment": "The state is not really used anywhere."})
 
 	def play_sound(self):
 		"""Plays a sound using mpg123
