@@ -318,6 +318,7 @@ class Beamer(Module):
 				display = "(irrelevant)"
 				mes = "transformed "
 		
+
 		return f"Transformed {display} with matrix: <br>{M}<br><br>Message from the process:<br> {mes}".replace("\n","<br>")
 	
 	def overrule_warning(self):
@@ -433,6 +434,8 @@ class Beamer(Module):
 		left = 0.5 * (width - rect_w)
 		top = 0.5 * (height - rect_h)
 
+		print("CAMERA CALIBRATION: args", args)
+
 		x1 = float(args.get("x1"))
 		y1 = float(args.get("y1"))
 		x2 = float(args.get("x2"))
@@ -447,7 +450,11 @@ class Beamer(Module):
 			[x2, y2],
 			[x3, y3],
 			[x4, y4]
+		]) * np.array([
+			self.config["beamer-dimensions"]["width"] / self.config["internal-dimensions"]["width"],
+			self.config["beamer-dimensions"]["height"] / self.config["internal-dimensions"]["height"]
 		])
+
 		corners_b = np.array([
 			[0.35, 0.35],
 			[0.65, 0.35],
@@ -456,7 +463,9 @@ class Beamer(Module):
 		]) * np.array([1920, 1080])
 
 		self.M = cv2.getPerspectiveTransform(corners_cam.astype(np.float32), corners_b.astype(np.float32))
+		print("CAMERA CALIBRATION: got matrix", self.M)
 		self.do_transform(getFromFile=False)
+		self.update_frame(self.frame)
 		return f"Calculated transformation matrix {self.M}<br>Check if correct, then save."
 
 
@@ -526,7 +535,6 @@ class Beamer(Module):
 			transformed_frame = img
 		else:
 			img = new_frame
-			#transformed_frame = img
 
 		frame = img
 		update_frame_flag = True
