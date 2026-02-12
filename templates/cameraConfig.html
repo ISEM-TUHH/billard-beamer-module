@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Beamer configuration using Camera Module</title>
+	    <!--<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}" />-->
+    </head>
+    <body>
+        
+        <div id="livestream">
+            <img src="{{ camera_video_feed }}" width="1500em"></img>   
+        </div>
+
+        Wait for the camera to detect all four Beamer markers that you put on the four corners.<br>
+        <ul>
+            <li>Detected markers get drawn on the livestream.</li>
+            <li>Click here to turn of the projection if the glare is to strong for the camera to detect: <input type="button" value="Black image" onclick="beamer_off()"></li>
+        </ul>
+        <br>
+        As soon as all markers are detected, the livestream stops and the Beamer gets transformed<br>
+        Check if the configuration looks correct, aligned with the borders of the table.
+        <ul>
+            <li>If it fits, save the transformation: <input type="button" onclick="save_transformation()" value="Save"></li>
+            <li>This will overwrite previous configurations! A neutral (unfinished) calibration will not be saved.</li>
+            <li>This will also stop the livestream.</li>
+        </ul>
+        Reload this page to start again.
+
+    <script type="text/javascript">
+        function beamer_off() {
+            fetch("/v1/off")
+        }
+        function save_transformation() {
+            fetch("/v1/savematrix");
+            fetch("{{ camera_stop }}");
+        }
+    </script>
+    
+    </body>
+</html>

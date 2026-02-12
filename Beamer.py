@@ -12,6 +12,7 @@ Attributes:
 
 
 from billard_base_module.Module import Module
+from billard_base_module.RemoteModules import Camera
 
 import numpy as np
 #import pandas as pd
@@ -71,6 +72,8 @@ class Beamer(Module):
 		self.current_dir = current_dir
 		Module.__init__(self, config=f"{current_dir}/{config}", template_folder=f"{current_dir}/{template_folder}", static_folder=f"{current_dir}/static")
 
+		self.camera = Camera(self.getModuleConfig("camera"))
+
 		TEST_MODE = self.TEST_MODE
 
 		self.transformPath = current_dir + "/storage/transform.json"
@@ -107,19 +110,23 @@ class Beamer(Module):
 				"playsound": self.play_sound,
 				"soundvolume": self.sound_volume,
 				"off": self.display_black_image,
-				"config": self.configure_output,
+				#"config": self.configure_output,
 				"updateconfigimage": self.update_config_image,
 				"camin": self.configure_camera_answer,
 				"manin": self.configure_manual_answer,
 				"state": self.get_state,
 				"transform": self.do_transform,
-				"savematrix": self.safe_transformation_matrix,
+				"savematrix": self.save_transformation_matrix,
 				"overwritesafety": self.overrule_warning
 			},
 			"debug": {
-				"control": self.control_image,
+				#"control": self.control_image,
 				"relaunch": self.force_restart,
 				"currentimage": self.current_image
+			},
+			"config": {
+				"camera_calibration": self.start_camera_calibration,
+				"manual_calibration": self.configure_output
 			}
 		}
 		self.add_all_api(api_dict)
@@ -317,7 +324,7 @@ class Beamer(Module):
 		self.passUnitMatrixWarning = True
 		return "You have overwritten the safety check to not write an unit matrix as the transformation matrix."
 
-	def safe_transformation_matrix(self):
+	def save_transformation_matrix(self):
 		if np.array_equal(self.M, np.eye(3)) and not self.passUnitMatrixWarning:
 			return "WARNING! You are close to overwriting the matrix with an unit matrix. If this is not on purpose, dont send this signal again. If you want to write an unit matrix, call /v1/overwritesafety first."
 
@@ -333,7 +340,7 @@ class Beamer(Module):
 		return f"Written transform.json: <br> {asStr}".replace("\n","<br>")
 
 	def configure_output(self):
-		"""Start the config process 
+		"""Start the manual config process 
 		
 		This starts the routine to align the beamer output to the pool table as it is recognised by the camera. Displays the configuration image and pings the camera module to measure and respond. (Last not yet implemented)
 
@@ -435,62 +442,25 @@ class Beamer(Module):
 		x4 = float(args.get("x4"))
 		y4 = float(args.get("y4"))
 
-		"""x1, y1 = 1000, 500
-		x2, y2 = 2000, 500
-		x3, y3 = 1000, 1000
-		x4, y4 = 2000, 1100"""
+		corners_cam = np.array([
+			[x1, y1],
+			[x2, y2],
+			[x3, y3],
+			[x4, y4]
+		])
+		corners_b = np.array([
+			[0.35, 0.35],
+			[0.65, 0.35],
+			[0.35, 0.65],
+			[0.65, 0.65]
+		]) * np.array([1920, 1080])
 
-		# 1. Zentrales Rechteck im Beamerbild
-		beamer_rect = np.array([
-			[left, top],
-			[left + rect_w, top], 
-			[left, top + rect_h],
-			[left + rect_w, top + rect_h]
-		], dtype=np.float32)
+		self.M = cv2.getPerspectiveTransform(corners_cam.astype(np.float32), corners_b.astype(np.float32))
+		self.do_transform(getFromFile=False)
+		return f"Calculated transformation matrix {self.M}<br>Check if correct, then save."
 
-		# 2. Deine Messwerte im Kamerabild (ersetzen!)
-		cam_rect = np.array([
-			[x1, y1],  # oben-links
-			[x2, y2],  # oben-rechts
-			[x3, y3],  # unten-links
-			[x4, y4],  # unten-rechts
-		], dtype=np.float32)
 
-		# 3. Homographie vom Kamera-Rechteck auf das zentrale Beamerrechteck
-		H = cv2.getPerspectiveTransform(cam_rect, beamer_rect)
-
-		# 4. Gesamte Beamerbild-Ecken im Beamerbild
-		beamer_corners = np.array([
-			[0, 0],                 # oben-links
-			[width-1, 0],           # oben-rechts
-			[0, height-1],          # unten-links
-			[width-1, height-1]     # unten-rechts
-		], dtype=np.float32)
-
-		# 5. Projektion der Beamer-Ecken in das Kamerabild
-		H_inv = np.linalg.inv(H)
-		beamer_corners_in_cam = cv2.perspectiveTransform(beamer_corners[None, :, :], H_inv)[0]
-
-		# 6. Gesamte Perspektivmatrix
-		M = cv2.getPerspectiveTransform(beamer_corners_in_cam, beamer_corners)
-
-		# 7. Transformiertes Bild
-		img = self.frame
-
-		img_warped = cv2.warpPerspective(img, M, (width, height))
-
-		self.M = M
-
-		self.state = "configured"
-
-		_, buffer = cv2.imencode(".jpg", img_warped)
-		self.frame = img_warped
-		self.update_frame(img_warped, do_transformation=False)
-		return Response(buffer.tobytes(), mimetype="image/jpg")
-
-		#return "This is a purely internal function."
-
-	def control_image(self):
+	def start_camera_calibration(self):
 		"""NOT WORKING part of trying to calibrate the beamer based on the Camera Module detecting the beamer.
 		
 		Returns:
@@ -503,7 +473,13 @@ class Beamer(Module):
 		self.frame = img
 		_, buffer = cv2.imencode(".jpg", img)
 		self.update_frame(img, do_transformation=False)
-		return Response(buffer.tobytes(), mimetype="image/jpg")
+		self.M = np.eye(3)
+		#self.do_transform(getFromFile=False)
+		#return Response(buffer.tobytes(), mimetype="image/jpg")
+
+		requests.get(self.camera.endpoint("/v1/startbeamercalibration"))
+		print("Started camera calibration")
+		return render_template("cameraConfig.html", camera_video_feed=self.camera.endpoint("/website/video_feed"), camera_stop=self.camera.endpoint("/v1/stopgeneration"))
 
 	def current_image(self):
 		_, buffer = cv2.imencode(".jpg", self.frame)

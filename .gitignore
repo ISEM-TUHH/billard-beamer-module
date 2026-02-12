@@ -5,6 +5,7 @@ docs/_build/doctrees/
 docs/_build/html/
 docs/_build/latex/*
 !docs/_build/latex/*.pdf
+*.svg
 
 # Copyrighted material
 sounds/**/*.mp3
