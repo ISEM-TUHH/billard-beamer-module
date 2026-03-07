@@ -1,5 +1,5 @@
 # Beamer module for the Billard@ISEM system
-This is the implementation for a Beamer Module as defined in documentation.
+This is the implementation for a Beamer Module as defined in the thesis.
 
 Using a Beamer above the billard table, the system gains the ability to project images directly onto the table. A perspective warp can be applied after manual calibration for the projection to perfectly fit the table. If the system running this software is able to play sounds (like most commercial beamers), this module can also output sound and set the volume. 
 
@@ -25,7 +25,10 @@ Run `Beamer.py` with a connected beamer to start the webserver and local GUI/dis
 
 ## Configuration
 This part is concerned with setting up the display area to perfectly match the billard table.
-1. Go to the modules configuration website under `http://<address>:5000/v1/config`
+
+### Manual calibration 
+(recommended when the camera module is not available):
+1. Go to the modules configuration website under `http://<address>:5000/config/manual_config`
 2. This displays a grid on the beamer. 
     - By selecting a corner on the website and clicking somewhere on the image, a marker is displayed at corresponding place on the beamer
     - Repeat until you perfectly match the corner you are wanting to fixate
@@ -35,6 +38,12 @@ This part is concerned with setting up the display area to perfectly match the b
     - Click on the "Apply configuration" button to see your changes applied.
         - If you want to iterate, reload the page and repeat. Reloading the page resets the configuration
         - If you want to keep the configuration, click on "Save the configuration". You need to have a configuration applied previously for this to apply.
+
+### Automatic calibration
+(recommended when the camera module is available)
+1. Go to the modules configuration website under `http://<address>:5000/config/manual_config`
+2. Follow the steps outlined on the website.
+
         
 ## Documentation
 Documentation can be generated using sphinx, which also gets installed at installation time into the virtual environment. To build the html documentation, use
