@@ -588,6 +588,8 @@ def display_image():
 		if END_DISPLAY:
 			break
 
+		time.sleep(0.05)
+
 	cv2.destroyAllWindows()
 
 if __name__ == "__main__":
