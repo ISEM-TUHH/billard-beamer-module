@@ -32,11 +32,13 @@ import urllib
 import logging
 import threading
 import signal
+import base64
 
 update_frame_flag = True
 frame = None
 TEST_MODE = True
 END_DISPLAY = False
+VIDEO_FLAG = False
 
 class Beamer(Module):
 	"""Implementation of the Beamer Module for the Billard@ISEM system.
@@ -117,7 +119,8 @@ class Beamer(Module):
 				"state": self.get_state,
 				"transform": self.do_transform,
 				"savematrix": self.save_transformation_matrix,
-				"overwritesafety": self.overrule_warning
+				"overwritesafety": self.overrule_warning,
+				"receivevideo": self.receive_video
 			},
 			"debug": {
 				#"control": self.control_image,
@@ -204,13 +207,48 @@ class Beamer(Module):
 		Returns:
 			str: "Image received", flask requires response
 		"""
+		global VIDEO_FLAG
+
 		res = request
 		#image = res["media"]
 		#print(res.data)
 		self.frame = cv2.imdecode(np.frombuffer(res.data, np.uint8), cv2.IMREAD_COLOR)
 		self.update_frame(self.frame)
 
+		VIDEO_FLAG = False
+
 		return "Image received"
+
+	def receive_video(self):
+		"""Display a list of images
+
+		Based on a json like
+		{
+			"fps": 10,
+			"frames": [
+				<list of images in base64 ascii encoding>
+			]
+		}
+		show each of the images in the defined order with the given frames per second
+		"""
+		global VIDEO_FLAG, VIDEO_FRAMES, VIDEO_FRAME_TIME
+		
+		res = request.json
+
+		VIDEO_FRAME_TIME = int(1000/res["fps"])
+		VIDEO_FRAMES = [
+			self.frame_preprocess(
+				cv2.imdecode(
+					np.frombuffer(
+						base64.b64decode(frame),
+						np.uint8
+						),
+					cv2.IMREAD_ANYCOLOR
+					)
+				) for frame in res["frames"]
+		]
+
+		VIDEO_FLAG = True
 
 	def put_white_points(self):
 		"""Receive moving balls (with a flask POST request) as json data in the format {"points": [{"x": 123, "y": 345}, ...]} and place them on the canvas.
@@ -320,6 +358,16 @@ class Beamer(Module):
 		
 
 		return f"Transformed {display} with matrix: <br>{M}<br><br>Message from the process:<br> {mes}".replace("\n","<br>")
+
+	def frame_preprocess(self, frame):
+		dim = self.config["beamer-dimensions"]
+		width, height = dim["width"], dim["height"]
+
+		if self.config["transformation"] == "OpenCV":
+			scaledImage = cv2.resize(frame, (width, height))
+			return cv2.warpPerspective(scaledImage, self.M, (width, height))
+		return frame
+			
 	
 	def overrule_warning(self):
 		"""If called, the user can now save a unit matrix as the transformation matrix.
@@ -571,14 +619,15 @@ def display_image():
 
 	In the test mode (flag ´TEST_MODE` in python, externally set with environment variable `PROD_OR_TEST=TEST`), the image is not displayed in fullscreen. 
 	"""
-	global frame, update_frame_flag, TEST_MODE, END_DISPLAY
+	global frame, update_frame_flag, TEST_MODE, END_DISPLAY, VIDEO_FLAG, VIDEO_FRAMES, VIDEO_FRAME_TIME
 	if not TEST_MODE:
 		cv2.namedWindow("beamer", cv2.WND_PROP_FULLSCREEN)
 		cv2.setWindowProperty("beamer", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 	#print("DISPLAYING NEW IMAGE")
+	i = 0
 	while True:
-		if update_frame_flag and frame is not None :
+		if update_frame_flag and frame is not None and not VIDEO_FLAG:
 			#print("UPDATING FRAME")
 			cv2.imshow("beamer", frame)
 			if cv2.waitKey(10) & 0xFF == ord('q'):  # Allow quitting with 'q' key
@@ -588,7 +637,13 @@ def display_image():
 		if END_DISPLAY:
 			break
 
-		time.sleep(0.05)
+		if VIDEO_FLAG:
+			i = 0 if i+1 >= len(VIDEO_FRAMES) else i+1
+			cv2.imshow("beamer", VIDEO_FRAMES[i])
+			if cv2.waitKey(VIDEO_FRAME_TIME) & 0xFF == ord('q'):
+				break
+		else:
+			time.sleep(0.05)
 
 	cv2.destroyAllWindows()
 
