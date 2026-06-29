@@ -226,7 +226,7 @@ class Beamer(Module):
 		{
 			"fps": 10,
 			"frames": [
-				<list of images in base64 ascii encoding>
+				(list of images in base64 ascii encoding)
 			]
 		}
 		show each of the images in the defined order with the given frames per second
@@ -249,6 +249,8 @@ class Beamer(Module):
 		]
 
 		VIDEO_FLAG = True
+
+		return str(len(VIDEO_FRAMES)) + " frames"
 
 	def put_white_points(self):
 		"""Receive moving balls (with a flask POST request) as json data in the format {"points": [{"x": 123, "y": 345}, ...]} and place them on the canvas.
