@@ -112,6 +112,7 @@ class Beamer(Module):
 				"playsound": self.play_sound,
 				"soundvolume": self.sound_volume,
 				"off": self.display_black_image,
+				"white": self.display_white_image,
 				#"config": self.configure_output,
 				"updateconfigimage": self.update_config_image,
 				"camin": self.configure_camera_answer,
@@ -319,6 +320,15 @@ class Beamer(Module):
 		self.update_frame(self.black_image, do_transformation=False) # when using OpenCV for transformation, this is way faster without transformation
 		transformed_frame = self.black_image.copy() # for nicer fast inference
 		return "Displaying black image"
+
+	def display_white_image(self):
+
+		global transformed_frame
+		dim = self.config["beamer-dimensions"]
+		white_image = np.full((dim["height"], dim["width"]), 255, dtype=np.uint8)
+		self.update_frame(white_image, do_transformation=False)
+		transformed_frame = self.white_image.copy()
+		return "Displaying white image"
 
 
 	###################### Setup/Calibration methods ####################################
